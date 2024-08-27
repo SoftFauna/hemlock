@@ -1,0 +1,19 @@
+/* HEMLOCK - a SlackBuilds like package manager. */
+/* <https://github.com/SoftFauna/HEMLOCK.git> */
+/* Copyright (c) 2024 The SoftFauna Team */
+
+#ifndef CMAKE_CONFIG_GEN_HEADER
+#define CMAKE_CONFIG_GEN_HEADER
+#ifdef __cplusplus  /* C++ compatibility */
+extern "C" {
+#endif
+/* code start */
+
+
+
+/* code end */
+#ifdef __cplusplus  /* C++ compatibility */
+}
+#endif
+#endif /* header guard */
+/* end of file */
