@@ -10,7 +10,6 @@ extern "C" {
 /* code start */
 
 
-
 /* code end */
 #ifdef __cplusplus  /* C++ compatibility */
 }

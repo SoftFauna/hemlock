@@ -11,7 +11,7 @@ Build requires:
 ~~~
 mkdir build
 cd build
-cmake ..
+cmake .. -DSQLITE3_LIBRARY=<SHARED_LIB> -DSQLITE3_INCLUDE_DIRS=<INCLUDE_PATH>
 cmake --build .
 ~~~
 
