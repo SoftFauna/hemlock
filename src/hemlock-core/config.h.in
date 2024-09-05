@@ -1,4 +1,4 @@
-/* HEMLOCK - a SlackBuilds like package manager. */
+/* HEMLOCK - a system independent package manager. */
 /* <https://github.com/SoftFauna/HEMLOCK.git> */
 /* Copyright (c) 2024 The SoftFauna Team */
 
@@ -8,6 +8,11 @@
 extern "C" {
 #endif
 /* code start */
+
+#define CMAKE_PROJECT_NAME "${CMAKE_PROJECT_NAME}"
+#define CMAKE_PROJECT_VERSION "${CMAKE_PROJECT_VERSION}"
+
+#define HEMLOCK_DATABASE_FILE "hemlockpkg.db"
 
 
 /* code end */

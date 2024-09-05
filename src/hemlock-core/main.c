@@ -1,110 +1,56 @@
+/* HEMLOCK - a system independent package manager. */
+/* <https://github.com/SoftFauna/HEMLOCK.git> */
+/* Copyright (c) 2024 The SoftFauna Team */
 
-#include <sqlite3.h>
+#include "config.h"
+#include "database.h"
 #include <stdio.h>
-#include <stdlib.h>
 
-
-static void print_hello (void);
-static void db_test (const char *filename);
-static sqlite3 *db_open (const char *filename);
-static void db_close (sqlite3 *db);
-static void _Noreturn db_abort (sqlite3 *db, int errorcode);
+static void test_package_gen (void);
 
 
 int
 main (int argc, char **argv)
 {
-    db_test ("./test.db");
-    print_hello ();
+    test_package_gen ();
     return 0;
 }
 
 
 static void
-print_hello (void)
+test_package_gen (void)
 {
-    printf ("Hello World\n");
-    return;
-}
+    db_package_t self;
+    self.name = "feh";
+    self.version = "3.61.2";
+    self.as_dependency = false;
+    self.is_installed  = false;
+    self.email = NULL;
+    self.maintainer = "testing this ain't work'in quite' right";
+    self.homepage = NULL;
+    self.package_id = -43221289;    /* unecessary */
 
-
-static sqlite3 *
-db_open (const char *filename)
-{
-    int errorcode;
-    sqlite3 *db = NULL;
-
-    errorcode = sqlite3_open (filename, &db);
-    if ((SQLITE_OK != errorcode) || (NULL == db)) db_abort (db, errorcode);
-
-    return db;
-}
-
-static void
-db_close (sqlite3 *db)
-{
-    if (NULL == db) return;
-
-    while (SQLITE_OK != sqlite3_close (db)) {}
-    return;
-}
-
-
-static void _Noreturn
-db_abort (sqlite3 *db, int errorcode)
-{
-    const char *ERRMSG = sqlite3_errmsg (db);
-    fprintf (stderr, "Error SQLite3: %d: %s\n", errorcode, ERRMSG);
-    db_close (db); db = NULL;
-    exit (EXIT_FAILURE);
-}
-
-static int
-db_print_results (void *cbdata, int coln, char **results, char **columns)
-{
-    if ((NULL == results) || (NULL == columns))
+    sqlite3 *db = db_open ("./test.db");
+    if (NULL == db)
     {
-        printf ("No Results");
-        return SQLITE_ABORT;
+        fprintf (stderr, "Failed to open database\n");
+        return;
     }
-    
-    printf ("{ ");
-    for (int i = 0; i < coln; i++)
+    if (0 != db_create_tables (db, NULL))
     {
-       printf ("\"%s\":\"%s\", ", columns[i], results[i]);
+        fprintf (stderr, "Failed to create tables\n");
+        goto test_exit;
     }
-    printf ("},\n");
+    if (0 != db_update_package (db, &self, stdout))
+    {
+        fprintf (stderr, "Failed to update package\n");
+    }
 
-    return SQLITE_OK;
-}
-
-
-static void
-db_test (const char *filename)
-{
-    sqlite3 *db = NULL;
-    int errorcode;
-    const char *SQL_MAKE_TABLES = 
-        "CREATE TABLE IF NOT EXISTS test_table ("
-        "    test_id INTEGER PRIMARY KEY,"
-        "    name    TEXT"
-        ");";
-    const char *SQL_INSERT_DATA = 
-        "INSERT INTO test_table (test_id, name)"
-        "VALUES (NULL, \"test data\");";
-    const char *SQL_RETRIEVE_DATA = 
-        "SELECT * FROM test_table;";
-
-    db = db_open (filename);
-
-    errorcode = sqlite3_exec (db, SQL_MAKE_TABLES, NULL, NULL, NULL);
-    if (SQLITE_OK != errorcode) db_abort (db, errorcode);
-    
-    errorcode = sqlite3_exec (db, SQL_INSERT_DATA, NULL, NULL, NULL);
-    if (SQLITE_OK != errorcode) db_abort (db, errorcode);
-    
-    errorcode = sqlite3_exec (db, SQL_RETRIEVE_DATA, db_print_results, NULL, NULL);
-    if (SQLITE_OK != errorcode) db_abort (db, errorcode);
-
+test_exit:
     db_close (db);
+
+    return;
 }
+
+
+/* end of file */

@@ -1,6 +1,6 @@
 # HEMLOCK
 
-A [SlackBuilds](https://slackbuilds.org) like package manager.
+A system independent package management core. (inspired by [SlackBuilds](https://slackbuilds.org))
 
 ## Build
 
@@ -11,7 +11,7 @@ Build requires:
 ~~~
 mkdir build
 cd build
-cmake .. -DSQLITE3_LIBRARY=<SHARED_LIB> -DSQLITE3_INCLUDE_DIRS=<INCLUDE_PATH>
+cmake ..
 cmake --build .
 ~~~
 

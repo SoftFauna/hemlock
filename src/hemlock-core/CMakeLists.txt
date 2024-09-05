@@ -8,7 +8,10 @@ find_package(SQLite3 REQUIRED)
 configure_file(config.h.in config.h)
 
 add_executable(hemlock
-        "main.c")
+        "main.c"
+        "string_utils.c"
+        "database_core.c"
+        "database.c")
 target_compile_features(hemlock PUBLIC c_std_11)
 target_include_directories(hemlock PUBLIC
         "${CMAKE_CURRENT_BINARY_DIR}"
