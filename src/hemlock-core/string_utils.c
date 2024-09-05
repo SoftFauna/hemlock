@@ -5,7 +5,9 @@
 #include "string_utils.h"
 
 #include <errno.h>
+#include <math.h>
 #include <stdbool.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -86,13 +88,14 @@ string_join (char **array, size_t n, char *seperator)
 char **
 string_split (char *src, char *find, size_t *length_out)
 {
-    char *substr_start = src;
+    void *temp = NULL;
+    char *substr_start = NULL;
     char *substr_end = NULL;
     size_t substr_len = 0;
-    char *end = strchr (src, '\0');
+    char *end = NULL; 
     bool last_run = false;
 
-    size_t find_len = NULL;
+    size_t find_len = 0;
 
     char **dest = NULL;
     size_t alloc = 3;
@@ -113,6 +116,8 @@ string_split (char *src, char *find, size_t *length_out)
         goto string_split_exit;
     }
 
+    end = strchr (src, '\0');
+    substr_start = src;
     while (false == last_run)
     {
         substr_end = strstr (substr_start, find);
@@ -124,7 +129,7 @@ string_split (char *src, char *find, size_t *length_out)
 
         if (count == alloc)
         {
-            void *temp = realloc (dest, (alloc * 2) * sizeof (char *));
+            temp = realloc (dest, (alloc * 2) * sizeof (char *));
             if (NULL == temp)
             {   /* handle out of memeory */
                 for (int i = 0; i < count; i++) 
@@ -157,18 +162,24 @@ string_split_exit:
 char *
 string_replace (char *src, char *find, char *replace)
 {
-    char *dest, **split_array;
-    size_t n;
+    char *dest = NULL, **split_array = NULL;
+    size_t n = 0;
 
-    if (NULL == src) return NULL;
-    if (NULL == find) return NULL;
+    if ((NULL == src) || (NULL == find))
+    {
+        errno = EINVAL;
+        return NULL;
+    }
 
     split_array = string_split (src, find, &n);
+    if (NULL == split_array) goto string_replace_exit; 
+    
     dest = string_join (split_array, n, replace);
 
     for (int i = 0; i < n; i++) free (split_array[i]);
     free (split_array);
 
+string_replace_exit:
     return dest;
 }
 
@@ -176,14 +187,15 @@ string_replace (char *src, char *find, char *replace)
 char *
 string_quote (char *base, char *quote)
 {
+
+    char *dest = NULL;
+    size_t quote_size = 0, base_size = 0, dest_size = 0;
+
     if ((NULL == base) || (NULL == quote)) 
     {
         errno = EINVAL;
         return NULL;
     }
-
-    char *dest;
-    size_t quote_size, base_size, dest_size;
 
     base_size  = strlen (base);
     quote_size = strlen (quote);
@@ -207,8 +219,8 @@ string_quote (char *base, char *quote)
 char *
 int_to_string (int n)
 {
-    size_t int_length;
-    char *dest;
+    size_t int_length = 0;
+    char *dest = NULL;
 
     if (0 == n)     int_length = 1;
     else if (n > 0) int_length = (int)(log10 (fabs (n)) + 1);
@@ -221,7 +233,7 @@ int_to_string (int n)
         return NULL;
     }
 
-    (void)itoa (n, dest, 10);
+    (void)snprintf (dest, int_length, "%d", n);
 
     return dest;
 }

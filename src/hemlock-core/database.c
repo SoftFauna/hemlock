@@ -240,4 +240,64 @@ update_early_exit:
 }
 
 
+db_package_t *
+db_search_package_id (sqlite3 *db, int id)
+{ 
+    char *select_statement = NULL;
+    char *package_id = NULL;
+
+    db_package_t *match = NULL;
+    size_t match_count = 0;
+    const size_t MATCH_MAX = 1;
+
+    if (NULL == db)
+    {
+        errno = EINVAL;
+        goto search_id_early_exit;
+    }    
+    
+    package_id = int_to_string (id);
+    if (NULL == package_id)
+    {
+        goto search_id_early_exit;
+    }
+
+    char *format_arr[] = 
+    {
+        "FROM packages\n"
+        "SELECT *\n"
+        "WHERE package_id = ", package_id, ";\n"
+    };
+    const size_t format_count = sizeof (format_arr) / sizeof (*format_arr);
+
+    select_statement = string_join (format_arr, format_count, "");
+    if (NULL == select_statement)
+    {
+        goto search_id_early_exit;
+    }
+
+    match = db_select_packages (db, select_statement, MATCH_MAX, &match_count);
+
+search_id_early_exit:
+    free (select_statement); select_statement = NULL;
+    free (package_id);       package_id = NULL;
+
+    return match;
+}
+
+
+static db_package_t *
+db_select_package (sqlite3 *db, char *sql_statement, size_t max, 
+                   size_t *found_count_out)
+{
+    if ((NULL == db) || (NULL == sql_statement))
+    {
+        errno = EINVAL;
+        return NULL;
+    }
+
+    
+
+}
+
 /* end of file */
