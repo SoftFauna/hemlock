@@ -233,7 +233,7 @@ int_to_string (int n)
         return NULL;
     }
 
-    (void)snprintf (dest, int_length, "%d", n);
+    (void)snprintf (dest, int_length + 1, "%d", n);
 
     return dest;
 }
