@@ -17,14 +17,7 @@ static void test_package_gen (void);
 int
 main (int argc, char **argv)
 {
-    mode_t mode;
-
-#ifdef _DEBUG   /* hard code debug mode */
-    mode = MODE_VERSION;
-#else
-    mode = mode_select (argc, argv);
-#endif
-
+    mode_t mode = mode_select (argc, argv);
     mode_execute (mode, argc, argv);
     return 0;
 }
