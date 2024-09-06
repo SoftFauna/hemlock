@@ -14,6 +14,20 @@ extern "C" {
 #include <stdio.h>
 #include <stddef.h>
 
+
+typedef struct 
+{
+    int type;
+    union
+    {
+        int i;
+        float f;
+        char *s;
+        unsigned char *b;
+    };
+} db_result_t;
+
+
 sqlite3 *db_open (const char *filename);
 void db_close (sqlite3 *db);
 
@@ -23,6 +37,8 @@ char *db_escape_null (void);
 char *db_escape_text (char *data);
 char *db_escape_boolean (bool data);
 char *db_escape_integer (int data);
+
+int db_get_column (sqlite3_stmt *stmt, int i, db_result_t *result_out);
 
 /* code end */
 #ifdef __cplusplus  /* C++ compatibility */

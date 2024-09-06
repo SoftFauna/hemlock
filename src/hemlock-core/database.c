@@ -14,9 +14,8 @@
 
 static char *gen_package_values (db_package_t *package);
 static char *gen_package_sets (db_package_t *package);
-static db_package_t *db_select_packages (sqlite3 *db, char *sql_statement, 
-                                         size_t max_n, size_t *n_out, 
-                                         FILE *log);
+static db_package_t *select_packages (sqlite3 *db, char *sql_statement, 
+                                      size_t max_n, size_t *n_out, FILE *log);
 
 
 static char *
@@ -36,7 +35,7 @@ gen_package_values (db_package_t *package)
     const size_t LIST_COUNT = sizeof (escaped_list) / sizeof (*escaped_list);
 
     /* validate all string */
-    for (int i = 0; i < LIST_COUNT; i++)
+    for (size_t i = 0; i < LIST_COUNT; i++)
     {
         if (NULL == escaped_list[i]) goto generate_values_free;
     }
@@ -46,7 +45,7 @@ gen_package_values (db_package_t *package)
 
 generate_values_free:
     /* free allocated memory */
-    for (int i = 0; i < LIST_COUNT; i++) {
+    for (size_t i = 0; i < LIST_COUNT; i++) {
         free (escaped_list[i]); escaped_list[i] = NULL;
     }
 
@@ -127,7 +126,6 @@ db_free_package (db_package_t *package)
     free (package->homepage);   package->homepage   = NULL;
     package->valid = PACKAGE_INVALID;
     
-    free (package); package = NULL;
     return;
 }
 
@@ -292,8 +290,8 @@ db_search_package_id (sqlite3 *db, int id, FILE *log)
         goto search_id_early_exit;
     }
 
-    match = db_select_packages (db, select_statement, MATCH_MAX, &match_count,
-                                log);
+    match = select_packages (db, select_statement, MATCH_MAX, 
+                             &match_count, log);
     if ((0 == match_count) || (NULL == match))
     {
         fprintf (stderr, "Could not select package by id: %s\n", package_id);
@@ -307,9 +305,69 @@ search_id_early_exit:
 }
 
 
+db_package_t *
+db_search_packages (sqlite3 *db, char *name, char *version, size_t *n_out, 
+                    FILE *log)
+{
+    char *select_statement = NULL;
+    char *escaped_name = NULL, *escaped_version = NULL;
+
+    db_package_t *match_arr = NULL;
+    size_t match_count = 0;
+
+    const char *DEFAULT_VERSION = "%";
+
+    if ((NULL == db) || (NULL == name) || (NULL == n_out))
+    {
+        errno = EINVAL;
+        goto search_name_early_exit;
+    }
+
+    version = (char *)(NULL == version ? DEFAULT_VERSION : version);
+
+    escaped_version = db_escape_text (version);
+    escaped_name    = db_escape_text (name);
+    if ((NULL == escaped_name) ||
+        (NULL == escaped_version))
+    {
+        goto search_name_early_exit;
+    }
+
+    char *format_arr[] = 
+    {
+        "SELECT *\n"
+        "FROM packages\n"
+        "WHERE name    like ", escaped_name, " AND\n"
+        "      version like ", escaped_version, ";\n"
+    };
+    const size_t FORMAT_LEN = sizeof (format_arr) / sizeof (*format_arr);
+
+    select_statement = string_join (format_arr, FORMAT_LEN, "");
+    if (NULL == select_statement)
+    {
+        goto search_name_early_exit;
+    }
+
+    match_arr = select_packages (db, select_statement, SIZE_MAX, 
+                                 &match_count, log);
+    if ((0 == match_count) || (NULL == match_arr))
+    {
+        fprintf (stderr, "No matches for name:\"%s\", version:\"%s\"\n", 
+                 escaped_name, escaped_version);
+    }
+
+search_name_early_exit:
+    free (escaped_version);  escaped_version  = NULL;
+    free (escaped_name);     escaped_name     = NULL;
+    free (select_statement); select_statement = NULL;
+
+    *n_out = match_count;
+    return match_arr;
+}
+
 static db_package_t *
-db_select_packages (sqlite3 *db, char *sql_statement, size_t max_n, 
-                    size_t *n_out, FILE *log)
+select_packages (sqlite3 *db, char *sql_statement, size_t max_n, 
+                 size_t *n_out, FILE *log)
 {
     int retcode = 0;
     size_t statement_length = 0;
@@ -323,22 +381,12 @@ db_select_packages (sqlite3 *db, char *sql_statement, size_t max_n,
     db_package_t *result = NULL;
     db_package_t *iter = NULL;
 
-    typedef struct 
-    {
-        int type;
-        union
-        {
-            int i;
-            float f;
-            char *s;
-            unsigned char *b;
-        };
-    } db_result_t;
     db_result_t out = { .type = SQLITE_NULL, .s = NULL };
     char *col_name = NULL;
     size_t col_n = 0;
 
-    if ((NULL == db) || (NULL == sql_statement) || (0 == max_n))
+    if ((NULL == db) || (NULL == sql_statement) || (0 == max_n)
+     || (NULL == n_out))
     {
         errno = EINVAL;
         goto select_package_exit;
@@ -398,29 +446,14 @@ db_select_packages (sqlite3 *db, char *sql_statement, size_t max_n,
         col_n = sqlite3_column_count (stmt);
         for (int i = 0; i < col_n; i++)
         {
-            out.type = sqlite3_column_type (stmt, i);
-            switch (out.type)
+            (void)db_get_column (stmt, i, &out);
+    
+            col_name = (char *)sqlite3_column_name (stmt, i);
+            if (NULL == col_name)
             {
-            case SQLITE_INTEGER:
-                out.i = sqlite3_column_int (stmt, i);
-                break;
-            case SQLITE_FLOAT:
-                fprintf (stderr, "SQLITE_FLOAT Unimplemented\n");
-                abort ();
-                break;
-            case SQLITE_TEXT:
-                out.s = (char *)sqlite3_column_text (stmt, i);
-                break;
-            case SQLITE_BLOB:
-                fprintf (stderr, "SQLITE_BLOB Unimplemented\n");
-                abort ();
-                break;
-            case SQLITE_NULL:
-                out.s = NULL;
-                break;
+                fprintf (stderr, "panic col_name == NULL\n");
             }
 
-            col_name = (char *)sqlite3_column_name (stmt, i);
             if ((0 == strcmp (col_name, "package_id")) 
              && (SQLITE_INTEGER == out.type)) 
             {
@@ -476,6 +509,8 @@ db_select_packages (sqlite3 *db, char *sql_statement, size_t max_n,
             {
                 fprintf (stderr, "SQLite Warning: skipping bad column\n");
             }
+
+            
         }
 
         /* increment */
@@ -488,7 +523,7 @@ select_package_exit:
     (void)sqlite3_finalize (stmt); stmt = NULL;
 
     /* return values */
-    if (NULL != n_out) *n_out = result_count;
+    *n_out = result_count;
     return result;
 }
 

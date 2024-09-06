@@ -18,11 +18,7 @@ string_clone (const char *src)
     char *dest;
     size_t n;
 
-    if (NULL == src) 
-    {
-        errno = EINVAL;
-        return NULL;
-    }
+    if (NULL == src) return NULL;
 
     n = strlen (src);
     dest = malloc (n + 1);
@@ -61,8 +57,19 @@ string_join (char **array, size_t n, char *seperator)
     char *dest = NULL;
     size_t dest_len = 0;
 
+    if ((NULL == array) || (NULL == seperator) || (0 == n))
+    {
+        errno = EINVAL;
+        return NULL;
+    }
+
     for (size_t i = 0; i < n; i++)
     {
+        if (NULL == array[i])
+        {
+            errno = EINVAL;
+            return NULL;
+        }
         dest_len += strlen (array[i]);
     }
 

@@ -125,4 +125,36 @@ db_escape_integer (int data)
 }
 
 
+int
+db_get_column (sqlite3_stmt *stmt, int i, db_result_t *result_out)
+{
+    if ((NULL == stmt) || (result_out == NULL)) return -1;
+
+    result_out->type = sqlite3_column_type (stmt, i);
+    switch (result_out->type)
+    {
+    case SQLITE_INTEGER:
+        result_out->i = sqlite3_column_int (stmt, i);
+        break;
+    case SQLITE_FLOAT:
+        fprintf (stderr, "SQLITE_FLOAT Unimplemented\n");
+        abort ();
+        break;
+    case SQLITE_TEXT:
+        result_out->s = (char *)sqlite3_column_text (stmt, i);
+        break;
+    case SQLITE_BLOB:
+        fprintf (stderr, "SQLITE_BLOB Unimplemented\n");
+        abort ();
+        break;
+    case SQLITE_NULL:
+        result_out->s = NULL;
+        break;
+    default:
+        return -1;
+    }
+
+    return 0;
+}
+
 /* end of file */

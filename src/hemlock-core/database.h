@@ -61,7 +61,8 @@ typedef struct
 int db_create_tables (sqlite3 *db, FILE *log);
 int db_insert_package (sqlite3 *db, db_package_t *package, FILE *log);
 int db_update_package (sqlite3 *db, db_package_t *package, FILE *log);
-db_package_t *db_search_package (sqlite3 *db, char *name, char *version);
+db_package_t *db_search_packages (sqlite3 *db, char *name, char *version, 
+                                  size_t *n_out, FILE *log);
 db_package_t *db_search_package_id (sqlite3 *db, int id, FILE *log);
 
 char *db_human_readable_package (db_package_t *package);

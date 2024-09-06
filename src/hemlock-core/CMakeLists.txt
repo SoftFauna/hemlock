@@ -9,15 +9,22 @@ configure_file(config.h.in config.h)
 
 add_executable(hemlock
         "main.c"
+        "mode.c"
         "string_utils.c"
         "database_core.c"
         "database.c")
-target_compile_features(hemlock PUBLIC c_std_11)
-target_include_directories(hemlock PUBLIC
+target_compile_features(hemlock PRIVATE c_std_11)
+target_include_directories(hemlock PRIVATE
         "${CMAKE_CURRENT_BINARY_DIR}"
         "${CMAKE_CURRENT_SOURCE_DIR}"
         "${SQLITE3_INCLUDE_DIRS}")
 target_link_libraries(hemlock
         "${SQLITE3_LIBRARIES}")
+
+if(MSVC)
+        target_compile_options(hemlock PRIVATE /Wall /Qspectre)
+else()
+        target_compile_options(hemlock PRIVATE -Wall -Wextra -Wpedantic)
+endif()
 
 # end of file
