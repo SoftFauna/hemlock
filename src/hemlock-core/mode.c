@@ -4,6 +4,8 @@
 
 #include "mode.h"
 
+#include "arguement.h"
+#include "insert.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -21,99 +23,92 @@ static void log_hemlock_help (FILE *out);
 static void log_hemlock_version (FILE *out);
 
 
-mode_t
-mode_select (int argc, char **argv)
-{
-    char *mode_iter = NULL;
-
-    if (NULL == argv) return MODE_NONE;
-
-    if (argc < (INDEX_MODE + 1)) return MODE_NONE;
-
-    mode_iter = argv[INDEX_MODE];
-    if (NULL == mode_iter) return MODE_NONE;
-
-    if (0 == strcmp (mode_iter, "update"))
-    {
-        return MODE_UPDATE;
-    }
-    else if (0 == strcmp (mode_iter, "insert"))
-    {
-        return MODE_INSERT;
-    }
-    else if (0 == strcmp (mode_iter, "remove"))
-    {
-        return MODE_REMOVE;
-    }
-    else if (0 == strcmp (mode_iter, "search"))
-    {
-        return MODE_SEARCH;
-    }
-    else if ((0 == strcmp (mode_iter, "--help")) ||
-             (0 == strcmp (mode_iter, "-h")))
-    {
-        return MODE_HELP;
-    }
-    else if (0 == strcmp (mode_iter, "--version"))
-    {
-        return MODE_VERSION;
-    }
-
-    return MODE_UNRECOGNIZED;
-}
-
-
 void _Noreturn
-mode_execute (mode_t mode, int argc, char **argv)
+mode_exec (int argc, char **argv)
 {
-    switch (mode)
+    const enum
     {
-    case MODE_INSERT:
-        printf ("insert mode unimplemented\n");
-        fflush (stdout);
+        MODE_UPDATE = CONARG_ID_CUSTOM,
+        MODE_INSERT,
+        MODE_SEARCH,
+        MODE_REMOVE,
+        MODE_HELP,
+        MODE_VERSION,
+    };
+
+    const conarg_t ARG_LIST[] =
+    {
+        { MODE_UPDATE,  NULL, "update",    CONARG_PARAM_REQUIRED },
+        { MODE_INSERT,  NULL, "insert",    CONARG_PARAM_OPTIONAL },
+        { MODE_SEARCH,  NULL, "search",    CONARG_PARAM_REQUIRED },
+        { MODE_REMOVE,  NULL, "remove",    CONARG_PARAM_REQUIRED },
+        { MODE_HELP,    "-h", "--help",    CONARG_PARAM_NONE },
+        { MODE_VERSION, NULL, "--version", CONARG_PARAM_NONE },
+    };
+    const size_t ARG_COUNT = sizeof (ARG_LIST) / sizeof (*ARG_LIST);
+
+    /* skip the executable name */
+    char **arg_iter = argv + 1;
+    int remaining = argc - 1;
+
+    char *parameter = NULL;
+    conarg_status_t param_stat = CONARG_STATUS_NA;
+    int id = conarg_check (ARG_LIST, ARG_COUNT, arg_iter, remaining, 
+                           &param_stat);
+
+    switch (id)    
+    {
+    case MODE_UPDATE:   /* update mode, pass only args after mode */
+        printf ("update mode unimplemented\n");
         break;
 
-    case MODE_UPDATE:
-        printf ("insert mode unimplemented\n");
-        fflush (stdout);
+    case MODE_INSERT:   /* insert mode, pass only args after mode */
+        if (CONARG_STATUS_VALID_PARAM == param_stat)
+        {
+            CONARG_STEP (arg_iter, remaining);
+            parameter = conarg_get_param (arg_iter, remaining);
+        }
+        CONARG_STEP (arg_iter, remaining);
+        insert_wrapper (parameter, remaining, arg_iter);
         break;
 
-    case MODE_SEARCH:
-        printf ("insert mode unimplemented\n");
-        fflush (stdout);
+    case MODE_SEARCH:   /* search mode, pass only args after mode */
+        printf ("search mode unimplemented\n");
         break;
 
-    case MODE_VERSION:
-        log_hemlock_version (stdout);
-        exit (EXIT_SUCCESS);
+    case MODE_REMOVE:   /* remove mode, pass only args after mode */
+        printf ("remove mode unimplemented\n");
         break;
 
-    case MODE_HELP:
+    case MODE_HELP:     /* hemlock help mode */
         log_hemlock_help (stdout);
         exit (EXIT_SUCCESS);
         break;
 
-    case MODE_UNRECOGNIZED:
-        fprintf (stderr, "Error: Unrecognized mode '%s'\n", argv[INDEX_MODE]);  
-        log_hemlock_help (stderr);
-        exit (EXIT_FAILURE);
+    case MODE_VERSION:  /* hemlock version mode */
+        log_hemlock_version (stdout);
+        exit (EXIT_SUCCESS);
         break;
 
-    case MODE_NONE:
-        fprintf (stderr, "Error: No mode specified\n");
+    /* error states */
+    case CONARG_ID_PARAM_ERROR:
+        fprintf (stderr, "error: mode '%s' requires additional parameter\n", *arg_iter);
         log_hemlock_help (stderr);
         exit (EXIT_FAILURE);
-        break;
 
-    case MODE_ERROR:
+    case CONARG_ID_UNKNOWN:
+        fprintf (stderr, "error: unknown mode: '%s'\n", *arg_iter);
+        log_hemlock_help (stderr);
+        exit (EXIT_FAILURE);
+
     default:
         log_hemlock_help (stderr);
         exit (EXIT_FAILURE);
-        break;
-    }    
+    }
 
-    exit (EXIT_FAILURE);
+    exit (EXIT_SUCCESS);
 }
+
 
 static void
 log_hemlock_help (FILE *out)
@@ -123,19 +118,25 @@ log_hemlock_help (FILE *out)
         "usage: hemlock [mode] [args...]\n" 
         "\n"
         "modes:\n"
-        "  update [args...]     update an existing package\n"
-        "  insert [args...]     insert a new package\n"
-        "  remove [args...]     remove a package\n"
-        "  search [args...]     search for a specific package\n"
+        "  update <pkgname> [args...]   update an existing package\n"
+        "  insert [pkgname] [args...]   insert a new package\n"
+        "  remove <pkgname> [args...]   remove a package\n"
+        "  search <query> [args...]     search for a specific package\n"
         "special modes:\n"
-        "  -h, --help           show this screen\n"
-        "      --version        show copyright and version\n"
+        "  -h, --help                   show this screen\n"
+        "      --version                show copyright and version\n"
         "\n"
         "universal args:\n"
-        "  -h, --help           show help page for the given mode\n"
+        "  -h, --help                   show help page for the given mode\n"
+        "\n"
+        "key:\n"
+        "  <>   required input\n"
+        "  []   optional input\n"
+        "  ...  multiple inputs\n"
+        "\n"
     };
 
-    fprintf (out, "%s\n", HELP_MESSAGE);
+    fprintf (out, "%s", HELP_MESSAGE);
     fflush (out);
 
     return;
