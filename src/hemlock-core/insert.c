@@ -5,7 +5,9 @@
 #include "insert.h"
 
 #include "arguement.h"
+#include "config.h"
 #include "database.h"
+#include "database_core.h"
 #include <errno.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -31,6 +33,8 @@ static insert_settings_t proccess_arguements (int arg_count, char **arg_list);
 static insert_settings_t get_default_settings (void);
 static bool validate_required_settings (insert_settings_t settings);
 static void log_settings (insert_settings_t settings);
+static void add_to_database (insert_settings_t settings);
+
 
 static insert_settings_t
 get_default_settings (void)
@@ -209,6 +213,48 @@ log_settings (insert_settings_t settings)
 }
 
 
+static void
+add_to_database (insert_settings_t settings)
+{
+    sqlite3 *db = NULL;
+    db_package_t package;
+    db_package_t *package_list = NULL;
+    size_t list_count = 0;
+
+    package.package_id = 0;
+    package.name = settings.name;
+    package.version = settings.version;
+    package.homepage = settings.homepage;
+    package.maintainer = settings.maintainer;
+    package.email = settings.email;
+    package.as_dependency = settings.as_dependency;
+    package.is_installed = settings.is_installed;
+
+    db = db_open (HEMLOCK_DATABASE_FILE);
+    (void)db_create_tables (db, NULL);
+    package_list = db_search_package (db, package.name, package.version,
+                                      &list_count, NULL); 
+    if (0 != list_count)
+    {
+        fprintf (stderr, "error: package exists\n");
+        goto add_to_db_exit;
+    }
+
+    (void)db_insert_package (db, &package, NULL);
+
+add_to_db_exit:
+    for (size_t i = 0; i < list_count; i++)
+    {
+        db_free_package (package_list + i);
+    }
+    list_count = 0;
+    free (package_list); package_list = NULL;
+    db_close (db); db = NULL;
+
+    return;
+}
+
+
 void _Noreturn
 insert_wrapper (char *opt_pkgname, int arg_count, char **arg_list)
 {
@@ -231,6 +277,7 @@ insert_wrapper (char *opt_pkgname, int arg_count, char **arg_list)
 
     /* log the settings to console */
     log_settings (settings);
+    add_to_database (settings);
 
     /* exit */
     exit (EXIT_SUCCESS);
