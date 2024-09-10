@@ -44,9 +44,16 @@ typedef struct
     conarg_param_t takes_param;
 } conarg_t;
 
-#define CONARG_STEP(iter, n) { \
+
+#define CONARG_STEP_N_UNSAFE(iter, remaining, n) { \
+    (iter)+=(n); \
+    (remaining)-=(n); \
+}
+
+
+#define CONARG_STEP(iter, remaining) { \
     (iter)++; \
-    (n)--; \
+    (remaining)--; \
 }
 
 

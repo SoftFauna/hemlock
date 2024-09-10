@@ -292,10 +292,6 @@ db_search_package_id (sqlite3 *db, int id, FILE *log)
 
     match = select_packages (db, select_statement, MATCH_MAX, 
                              &match_count, log);
-    if ((0 == match_count) || (NULL == match))
-    {
-        fprintf (stderr, "Could not select package by id: %s\n", package_id);
-    }
 
 search_id_early_exit:
     free (select_statement); select_statement = NULL;
@@ -350,11 +346,6 @@ db_search_packages (sqlite3 *db, char *name, char *version, size_t *n_out,
 
     match_arr = select_packages (db, select_statement, SIZE_MAX, 
                                  &match_count, log);
-    if ((0 == match_count) || (NULL == match_arr))
-    {
-        fprintf (stderr, "No matches for name:\"%s\", version:\"%s\"\n", 
-                 escaped_name, escaped_version);
-    }
 
 search_name_early_exit:
     free (escaped_version);  escaped_version  = NULL;
@@ -364,6 +355,7 @@ search_name_early_exit:
     *n_out = match_count;
     return match_arr;
 }
+
 
 static db_package_t *
 select_packages (sqlite3 *db, char *sql_statement, size_t max_n, 

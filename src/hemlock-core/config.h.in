@@ -9,11 +9,14 @@ extern "C" {
 #endif
 /* code start */
 
-#define CMAKE_PROJECT_NAME "${CMAKE_PROJECT_NAME}"
-#define CMAKE_PROJECT_VERSION "${CMAKE_PROJECT_VERSION}"
+#cmakedefine CMAKE_PROJECT_NAME "${CMAKE_PROJECT_NAME}"
+#cmakedefine PROJECT_NAME "${PROJECT_NAME}"
+#cmakedefine PROJECT_VERSION "${PROJECT_VERSION}"
+
 
 #define HEMLOCK_DATABASE_FILE "hemlockpkg.db"
 
+#define COPYRIGHT_YEAR "2024"
 
 /* code end */
 #ifdef __cplusplus  /* C++ compatibility */

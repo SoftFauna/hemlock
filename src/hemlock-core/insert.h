@@ -9,7 +9,7 @@ extern "C" {
 #endif
 /* code start */
 
-void insert_wrapper (char *param, int arg_count, char **arg_list);
+void insert_wrapper (int remaining, char **arg_iter);
 
 /* code end */
 #ifdef __cplusplus  /* C++ compatibility */

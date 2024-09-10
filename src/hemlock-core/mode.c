@@ -5,18 +5,11 @@
 #include "mode.h"
 
 #include "arguement.h"
+#include "config.h"
 #include "insert.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
-
-const enum
-{
-    INDEX_PROG_NAME,
-    INDEX_MODE,
-    INDEX_ARG_START,
-};
 
 
 static void log_hemlock_help (FILE *out);
@@ -24,7 +17,7 @@ static void log_hemlock_version (FILE *out);
 
 
 void _Noreturn
-mode_exec (int argc, char **argv)
+mode_exec (int remaining, char **arg_iter)
 {
     const enum
     {
@@ -38,20 +31,19 @@ mode_exec (int argc, char **argv)
 
     const conarg_t ARG_LIST[] =
     {
-        { MODE_UPDATE,  NULL, "update",    CONARG_PARAM_REQUIRED },
-        { MODE_INSERT,  NULL, "insert",    CONARG_PARAM_OPTIONAL },
-        { MODE_SEARCH,  NULL, "search",    CONARG_PARAM_REQUIRED },
-        { MODE_REMOVE,  NULL, "remove",    CONARG_PARAM_REQUIRED },
+        { MODE_UPDATE,  NULL, "update",    CONARG_PARAM_NONE },
+        { MODE_INSERT,  NULL, "insert",    CONARG_PARAM_NONE },
+        { MODE_SEARCH,  NULL, "search",    CONARG_PARAM_NONE },
+        { MODE_REMOVE,  NULL, "remove",    CONARG_PARAM_NONE },
         { MODE_HELP,    "-h", "--help",    CONARG_PARAM_NONE },
         { MODE_VERSION, NULL, "--version", CONARG_PARAM_NONE },
     };
     const size_t ARG_COUNT = sizeof (ARG_LIST) / sizeof (*ARG_LIST);
 
     /* skip the executable name */
-    char **arg_iter = argv + 1;
-    int remaining = argc - 1;
+    CONARG_STEP (arg_iter, remaining);
 
-    char *parameter = NULL;
+    /* get the mode */
     conarg_status_t param_stat = CONARG_STATUS_NA;
     int id = conarg_check (ARG_LIST, ARG_COUNT, arg_iter, remaining, 
                            &param_stat);
@@ -63,13 +55,8 @@ mode_exec (int argc, char **argv)
         break;
 
     case MODE_INSERT:   /* insert mode, pass only args after mode */
-        if (CONARG_STATUS_VALID_PARAM == param_stat)
-        {
-            CONARG_STEP (arg_iter, remaining);
-            parameter = conarg_get_param (arg_iter, remaining);
-        }
         CONARG_STEP (arg_iter, remaining);
-        insert_wrapper (parameter, remaining, arg_iter);
+        insert_wrapper (remaining, arg_iter);
         break;
 
     case MODE_SEARCH:   /* search mode, pass only args after mode */
@@ -113,26 +100,29 @@ mode_exec (int argc, char **argv)
 static void
 log_hemlock_help (FILE *out)
 {
-    const char HELP_MESSAGE[] = 
+    const char *HELP_MESSAGE = 
     {
-        "usage: hemlock [mode] [args...]\n" 
+        "Usage: " PROJECT_NAME " MODE [OPTION]...\n"
+        "Interact with the HEMLOCK package database through CLI.\n"
         "\n"
+        "Mandatory arguements to long options are mandatory for short options too.\n"
         "modes:\n"
-        "  update <pkgname> [args...]   update an existing package\n"
-        "  insert [pkgname] [args...]   insert a new package\n"
-        "  remove <pkgname> [args...]   remove a package\n"
-        "  search <query> [args...]     search for a specific package\n"
+        "  update NAME [VERSION]       make updates to an existing package entry\n"
+        "  insert NAME [VERSION]       create a new package entry\n"
+        "  remove NAME [VERSION]       remove a package entry\n"
+        "  search QUERY                search for a package entry\n"
         "special modes:\n"
-        "  -h, --help                   show this screen\n"
-        "      --version                show copyright and version\n"
+        "  -h, --help                  show this message\n"
+        "      --version               show extra information about the program\n"
         "\n"
-        "universal args:\n"
-        "  -h, --help                   show help page for the given mode\n"
+        "The QUERY arguement is a SQL 'like' search query, as such, \"%\" may be used\n"
+        "as a SQL equivelant of pascal regex's \".*?\" non-greedy match.\n"
         "\n"
-        "key:\n"
-        "  <>   required input\n"
-        "  []   optional input\n"
-        "  ...  multiple inputs\n"
+        "Exit status:\n"
+        " 0  if OK,\n"
+        " 1  if error.\n"
+        "\n"
+        "SoftFauna hemlock: <https://github.com/SoftFauna/hemlock/>\n"
         "\n"
     };
 
@@ -142,12 +132,17 @@ log_hemlock_help (FILE *out)
     return;
 }
 
+
 static void
 log_hemlock_version (FILE *out)
 {
     const char VERSION_MESSAGE[] = 
     {
-        "[version message template]"
+        PROJECT_NAME " (SoftFauna " CMAKE_PROJECT_NAME ")" PROJECT_VERSION "\n"
+        "Copyright " COPYRIGHT_YEAR " The SoftFauna Team\n"
+        "License MIT: The MIT license, <https://spdx.org/licenses/MIT.html>\n"
+        "This is free software: you are free to change and redistribute it.\n"
+        "There is NO WARRANTY, to the extent permitted by law.\n"
     };
 
     fprintf (out, "%s\n", VERSION_MESSAGE);
