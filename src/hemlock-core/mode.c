@@ -108,7 +108,7 @@ log_hemlock_help (FILE *out)
         "Mandatory arguements to long options are mandatory for short options too.\n"
         "modes:\n"
         "  update NAME [VERSION]       make updates to an existing package entry\n"
-        "  insert NAME [VERSION]       create a new package entry\n"
+        "  insert [NAME [VERSION]]     create a new package entry\n"
         "  remove NAME [VERSION]       remove a package entry\n"
         "  search QUERY                search for a package entry\n"
         "special modes:\n"
