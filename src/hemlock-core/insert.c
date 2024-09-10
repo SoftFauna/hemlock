@@ -14,26 +14,10 @@
 #include <stdlib.h>
 #include <string.h>
 
-typedef struct
-{
-    char *database;
-    char *name;
-    char *version;
-    char *homepage;
-    char *maintainer;
-    char *email;
-    char *require_list;
-    char *file_list;
-    bool dry_run;
-    bool debug;
-    bool verbose;
-    bool as_dependency;
-    bool is_installed;
-} insert_settings_t;
+
 
 
 static void log_insert_help (FILE *out);
-static void log_settings (insert_settings_t settings);
 static insert_settings_t proccess_arguements (int remaining, char **arg_iter);
 static insert_settings_t get_default_settings (void);
 static int get_sequence_arguements (insert_settings_t *settings, int remaining,
@@ -325,12 +309,12 @@ add_to_database (insert_settings_t settings)
     db_package_t *package_list = NULL;
     size_t list_count = 0;
 
-    package.package_id = 0;
-    package.name       = settings.name;
-    package.version    = settings.version;
-    package.homepage   = settings.homepage;
-    package.maintainer = settings.maintainer;
-    package.email      = settings.email;
+    package.package_id    = 0;
+    package.name          = settings.name;
+    package.version       = settings.version;
+    package.homepage      = settings.homepage;
+    package.maintainer    = settings.maintainer;
+    package.email         = settings.email;
     package.as_dependency = settings.as_dependency;
     package.is_installed  = settings.is_installed;
 
@@ -387,21 +371,7 @@ add_to_db_exit:
 static void 
 log_settings (insert_settings_t settings)
 {
-    const char *FORMAT = 
-    {
-        "verbose: %d\n"
-        "name: %s\n"
-        "version: %s\n"
-        "homepage: %s\n"
-        "maintainer: %s\n"
-        "email: %s\n"
-        "is_installed: %d\n"
-        "as_dependency: %d\n"
-    };
-    fprintf (stderr, FORMAT, settings.verbose, settings.name, 
-             settings.version, settings.homepage, settings.maintainer,
-             settings.email, settings.is_installed, settings.as_dependency);
-    fflush (stderr);
+
     
 }
 
