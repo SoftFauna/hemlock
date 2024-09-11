@@ -13,7 +13,10 @@ add_executable(hemlock-core
         "main.c"
         "arguement.c"
         "mode.c"
+        "mode_template.c"
+        "settings.c"
         "insert.c"
+        "remove.c"
         "string_utils.c"
         "database_core.c"
         "database.c")

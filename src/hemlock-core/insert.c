@@ -8,316 +8,35 @@
 #include "config.h"
 #include "database.h"
 #include "database_core.h"
-#include <errno.h>
+#include "mode_template.h"
+#include "settings.h"
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
-
-typedef struct
-{
-    char *database;
-    char *name;
-    char *version;
-    char *homepage;
-    char *maintainer;
-    char *email;
-    char *require_list;
-    char *file_list;
-    bool dry_run;
-    bool debug;
-    bool verbose;
-    bool as_dependency;
-    bool is_installed;
-} insert_settings_t;
 
 
-static void log_insert_help (FILE *out);
-static void log_settings (insert_settings_t settings);
-static insert_settings_t proccess_arguements (int remaining, char **arg_iter);
-static insert_settings_t get_default_settings (void);
-static int get_sequence_arguements (insert_settings_t *settings, int remaining,
-                                    char **arg_iter);
-static int get_field_arguements (insert_settings_t *settings, int remaining,
-                                 char **arg_iter);
-static void validate_required_settings (insert_settings_t settings);
-static void add_to_database (insert_settings_t settings);
+static int get_sequenced_args (settings_t *settings, int argc, char **argv);
+static int get_field_args (settings_t *settings, int argc, char **argv);
+static void log_insert_help (FILE *fp);
+static void add_to_database (settings_t settings);
 
 
 void _Noreturn
-insert_wrapper (int remaining, char **arg_iter)
+insert_wrapper (int argc, char **argv)
 {
-    insert_settings_t settings;
+    const required_t required = REQUIRE_NAME | REQUIRE_VERSION;
+    
+    settings_t settings = mode_template_proccess_args (argc, argv, required, 
+            get_sequenced_args, get_field_args, log_insert_help);
 
-    /* proccess console arguement */
-    settings = proccess_arguements (remaining, arg_iter);
-
-    /* log the settings to console */
     add_to_database (settings);
 
-    /* exit */
     exit (EXIT_SUCCESS);
 }
 
 
-static insert_settings_t
-proccess_arguements (int remaining, char **arg_iter)
-{
-    int n = 0;
-    insert_settings_t settings = get_default_settings ();
-    
-    /* get [NAME [VERSION]] */
-    n = get_sequence_arguements (&settings, remaining, arg_iter);
-    CONARG_STEP_N_UNSAFE (arg_iter, remaining, n);
-
-    /* get all other fields */
-    (void)get_field_arguements (&settings, remaining, arg_iter);
-    
-    /* verify valid input */
-    validate_required_settings (settings);
-    
-    return settings;
-}
-
-
-static insert_settings_t
-get_default_settings (void)
-{
-    insert_settings_t settings;
-
-    settings.debug   = false;
-    settings.verbose = false;
-
-    settings.database = HEMLOCK_DATABASE_FILE;
-    settings.dry_run  = false;
-
-    settings.name         = NULL;
-    settings.version      = NULL;
-    settings.homepage     = NULL;
-    settings.maintainer   = NULL;
-    settings.email        = NULL;
-    settings.require_list = NULL;
-    settings.file_list    = NULL;
-
-    settings.as_dependency = false;
-    settings.is_installed  = true;    
-
-    return settings;
-}
-
-
-static int
-get_sequence_arguements (insert_settings_t *settings, int remaining, 
-                         char **arg_iter)
-{   
-    int initial_count = remaining;
-    char *name    = NULL;
-    char *version = NULL;
-
-    /* insert [NAME [VERSION]] */
-
-    /* name (optional) */
-    name = conarg_get_param (arg_iter, remaining);
-    if ((NULL == name) || (conarg_is_flag (name))) 
-    {
-        name = NULL;
-        goto sequence_exit;
-    }
-    CONARG_STEP (arg_iter, remaining);
-
-    /* version (optional) */
-    version = conarg_get_param (arg_iter, remaining);
-    if ((NULL == version) || (conarg_is_flag (version))) 
-    {
-        version = NULL;
-        goto sequence_exit;
-    }
-    CONARG_STEP (arg_iter, remaining);
-
-sequence_exit:
-    settings->name    = name;
-    settings->version = version;
-
-    return (initial_count - remaining);
-}
-
-
-static int
-get_field_arguements (insert_settings_t *settings, int remaining, 
-                     char **arg_iter)
-{
-    int initial_count = remaining;
-
-    const enum 
-    {
-        INSERT_NAME = CONARG_ID_CUSTOM,
-        INSERT_VERSION,
-        INSERT_HOMEPAGE,
-        INSERT_MAINTAINER,
-        INSERT_EMAIL,
-        INSERT_REQUIRE,
-        INSERT_FILES,
-        INSERT_DEPENDENCY,
-        INSERT_STANDALONE,
-        INSERT_INSTALLED,
-        INSERT_UNINSTALLED,
-        INSERT_DRY,
-        INSERT_DATABASE,
-        INSERT_DEBUG,
-        INSERT_VERBOSE,
-        INSERT_TERSE,
-        INSERT_HELP,
-    };
-
-    const conarg_t ARG_LIST[] = 
-    {
-        { INSERT_NAME,        "-n", "--name",        CONARG_PARAM_REQUIRED },
-        { INSERT_VERSION,     "-V", "--version",     CONARG_PARAM_REQUIRED },
-        { INSERT_HOMEPAGE,    "-p", "--homepage",    CONARG_PARAM_REQUIRED },
-        { INSERT_MAINTAINER,  "-m", "--maintainer",  CONARG_PARAM_REQUIRED },
-        { INSERT_EMAIL,       "-e", "--email",       CONARG_PARAM_REQUIRED },
-        { INSERT_REQUIRE,     "-r", "--require",     CONARG_PARAM_REQUIRED },
-        { INSERT_FILES,       "-f", "--files",       CONARG_PARAM_REQUIRED },
-        { INSERT_DEPENDENCY,  "-d", "--dependency",  CONARG_PARAM_NONE },
-        { INSERT_STANDALONE,  "-D", "--standalone",  CONARG_PARAM_NONE },
-        { INSERT_INSTALLED,   "-i", "--installed",   CONARG_PARAM_NONE },
-        { INSERT_UNINSTALLED, "-I", "--uninstalled", CONARG_PARAM_NONE },
-
-        { INSERT_DRY,      NULL, "--dryrun",   CONARG_PARAM_NONE },
-        { INSERT_DATABASE, NULL, "--database", CONARG_PARAM_REQUIRED },
-
-        { INSERT_DEBUG,   NULL, "--debug",   CONARG_PARAM_NONE },
-        { INSERT_VERBOSE, "-v", "--verbose", CONARG_PARAM_NONE },
-        { INSERT_TERSE,   "-t", "--terse",   CONARG_PARAM_NONE },
-        { INSERT_HELP,    "-h", "--help",    CONARG_PARAM_NONE },
-    };
-    const size_t ARG_COUNT = sizeof (ARG_LIST) / sizeof (*ARG_LIST);
-    int id;
-    conarg_status_t param_stat;
-
-    while (remaining > 0)
-    {
-        param_stat = CONARG_STATUS_NA;
-        id = conarg_check (ARG_LIST, ARG_COUNT, arg_iter, remaining, 
-                           &param_stat);
-
-        switch (id)
-        {
-        case INSERT_NAME:
-            CONARG_STEP (arg_iter, remaining);
-            settings->name = conarg_get_param (arg_iter, remaining);
-            break;
-
-        case INSERT_VERSION:
-            CONARG_STEP (arg_iter, remaining);
-            settings->version = conarg_get_param (arg_iter, remaining);
-            break;
-
-        case INSERT_HOMEPAGE:
-            CONARG_STEP (arg_iter, remaining);
-            settings->homepage = conarg_get_param (arg_iter, remaining);
-            break;
-
-        case INSERT_MAINTAINER:
-            CONARG_STEP (arg_iter, remaining);
-            settings->maintainer = conarg_get_param (arg_iter, remaining);
-            break;
-
-        case INSERT_EMAIL:
-            CONARG_STEP (arg_iter, remaining);
-            settings->email = conarg_get_param (arg_iter, remaining);
-            break;
-
-        case INSERT_FILES:
-            CONARG_STEP (arg_iter, remaining);
-            settings->file_list = conarg_get_param (arg_iter, remaining);
-            break;
-
-        case INSERT_REQUIRE:
-            CONARG_STEP (arg_iter, remaining);
-            settings->require_list = conarg_get_param (arg_iter, remaining);
-            break;
-
-        case INSERT_DEPENDENCY:
-            settings->as_dependency = true;
-            break;
-
-        case INSERT_STANDALONE:
-            settings->as_dependency = false;
-            break;
-
-        case INSERT_INSTALLED:
-            settings->is_installed = true;
-            break;
-
-        case INSERT_UNINSTALLED:
-            settings->is_installed = false;
-            break;
-
-        case INSERT_DATABASE:
-            CONARG_STEP (arg_iter, remaining);
-            settings->database = conarg_get_param (arg_iter, remaining);
-            break;
-
-        case INSERT_DRY:
-            settings->dry_run = true;
-            break;
-
-        case INSERT_DEBUG:
-            settings->debug   = true;
-            /* fall through, 
-             * enable all verbose flags too */
-        case INSERT_VERBOSE:
-            settings->verbose = true;
-            break;
-
-        case INSERT_TERSE:
-            settings->verbose = false;
-            break;
-
-        case INSERT_HELP:
-            log_insert_help (stdout);
-            exit (EXIT_SUCCESS);
-
-        /* error states */
-        case CONARG_ID_UNKNOWN:
-        case CONARG_ID_PARAM_ERROR:
-        default:
-            log_insert_help (stderr);
-            exit (EXIT_FAILURE);
-        }
-
-        CONARG_STEP (arg_iter, remaining);
-    }
-
-    return (initial_count - remaining);
-}
-
-
 static void
-validate_required_settings (insert_settings_t settings)
-{    
-    if (NULL == settings.database)
-    {
-        fprintf (stderr, "error: database cannot be NULL\n");
-        log_insert_help (stderr);
-        exit (EXIT_FAILURE);
-    }
-
-    if ((NULL == settings.name) ||
-        (NULL == settings.version))
-    {
-        fprintf (stderr, "error: name and version fields are required.\n");
-        log_insert_help (stderr);
-        exit (EXIT_FAILURE);
-    }
-
-    return;
-}
-
-
-static void
-add_to_database (insert_settings_t settings)
+add_to_database (settings_t settings)
 {
     int retcode = 0;
     sqlite3 *db = NULL;
@@ -325,12 +44,12 @@ add_to_database (insert_settings_t settings)
     db_package_t *package_list = NULL;
     size_t list_count = 0;
 
-    package.package_id = 0;
-    package.name       = settings.name;
-    package.version    = settings.version;
-    package.homepage   = settings.homepage;
-    package.maintainer = settings.maintainer;
-    package.email      = settings.email;
+    package.package_id    = 0;
+    package.name          = settings.name;
+    package.version       = settings.version;
+    package.homepage      = settings.homepage;
+    package.maintainer    = settings.maintainer;
+    package.email         = settings.email;
     package.as_dependency = settings.as_dependency;
     package.is_installed  = settings.is_installed;
 
@@ -384,30 +103,193 @@ add_to_db_exit:
 }
 
 
-static void 
-log_settings (insert_settings_t settings)
-{
-    const char *FORMAT = 
+static int
+get_sequenced_args (settings_t *settings, int argc, char **argv)
+{   
+    int initial_count = argc;
+    char *name    = NULL;
+    char *version = NULL;
+
+    /* insert [NAME [VERSION]] */
+
+    /* name (optional) */
+    name = conarg_get_param (argc, argv);
+    if ((NULL == name) || (conarg_is_flag (name))) 
     {
-        "verbose: %d\n"
-        "name: %s\n"
-        "version: %s\n"
-        "homepage: %s\n"
-        "maintainer: %s\n"
-        "email: %s\n"
-        "is_installed: %d\n"
-        "as_dependency: %d\n"
+        name = NULL;
+        goto sequence_exit;
+    }
+    CONARG_STEP (argc, argv);
+
+    /* version (optional) */
+    version = conarg_get_param (argc, argv);
+    if ((NULL == version) || (conarg_is_flag (version))) 
+    {
+        version = NULL;
+        goto sequence_exit;
+    }
+    CONARG_STEP (argc, argv);
+
+sequence_exit:
+    settings->name    = name;
+    settings->version = version;
+
+    return (initial_count - argc);
+}
+
+
+static int
+get_field_args (settings_t *settings, int argc, char **argv)
+{
+    int initial_count = argc;
+
+    const enum 
+    {
+        INSERT_NAME = CONARG_ID_CUSTOM,
+        INSERT_VERSION,
+        INSERT_HOMEPAGE,
+        INSERT_MAINTAINER,
+        INSERT_EMAIL,
+        INSERT_REQUIRE,
+        INSERT_FILES,
+        INSERT_DEPENDENCY,
+        INSERT_STANDALONE,
+        INSERT_INSTALLED,
+        INSERT_UNINSTALLED,
+        INSERT_DRY,
+        INSERT_DATABASE,
+        INSERT_DEBUG,
+        INSERT_VERBOSE,
+        INSERT_TERSE,
+        INSERT_HELP,
     };
-    fprintf (stderr, FORMAT, settings.verbose, settings.name, 
-             settings.version, settings.homepage, settings.maintainer,
-             settings.email, settings.is_installed, settings.as_dependency);
-    fflush (stderr);
-    
+
+    const conarg_t ARG_LIST[] = 
+    {
+        { INSERT_NAME,        "-n", "--name",        CONARG_PARAM_REQUIRED },
+        { INSERT_VERSION,     "-V", "--version",     CONARG_PARAM_REQUIRED },
+        { INSERT_HOMEPAGE,    "-p", "--homepage",    CONARG_PARAM_REQUIRED },
+        { INSERT_MAINTAINER,  "-m", "--maintainer",  CONARG_PARAM_REQUIRED },
+        { INSERT_EMAIL,       "-e", "--email",       CONARG_PARAM_REQUIRED },
+        { INSERT_REQUIRE,     "-r", "--require",     CONARG_PARAM_REQUIRED },
+        { INSERT_FILES,       "-f", "--files",       CONARG_PARAM_REQUIRED },
+        { INSERT_DEPENDENCY,  "-d", "--dependency",  CONARG_PARAM_NONE },
+        { INSERT_STANDALONE,  "-D", "--standalone",  CONARG_PARAM_NONE },
+        { INSERT_INSTALLED,   "-i", "--installed",   CONARG_PARAM_NONE },
+        { INSERT_UNINSTALLED, "-I", "--uninstalled", CONARG_PARAM_NONE },
+
+        { INSERT_DRY,      NULL, "--dryrun",   CONARG_PARAM_NONE },
+        { INSERT_DATABASE, NULL, "--database", CONARG_PARAM_REQUIRED },
+
+        { INSERT_DEBUG,   NULL, "--debug",   CONARG_PARAM_NONE },
+        { INSERT_VERBOSE, "-v", "--verbose", CONARG_PARAM_NONE },
+        { INSERT_TERSE,   "-t", "--terse",   CONARG_PARAM_NONE },
+        { INSERT_HELP,    "-h", "--help",    CONARG_PARAM_NONE },
+    };
+    const size_t ARG_COUNT = sizeof (ARG_LIST) / sizeof (*ARG_LIST);
+    int id;
+    conarg_status_t param_stat;
+
+    while (argc > 0)
+    {
+        param_stat = CONARG_STATUS_NA;
+        id = conarg_check (ARG_LIST, ARG_COUNT, argc, argv, &param_stat);
+
+        switch (id)
+        {
+        case INSERT_NAME:
+            CONARG_STEP (argc, argv);
+            settings->name = conarg_get_param (argc, argv);
+            break;
+
+        case INSERT_VERSION:
+            CONARG_STEP (argc, argv);
+            settings->version = conarg_get_param (argc, argv);
+            break;
+
+        case INSERT_HOMEPAGE:
+            CONARG_STEP (argc, argv);
+            settings->homepage = conarg_get_param (argc, argv);
+            break;
+
+        case INSERT_MAINTAINER:
+            CONARG_STEP (argc, argv);
+            settings->maintainer = conarg_get_param (argc, argv);
+            break;
+
+        case INSERT_EMAIL:
+            CONARG_STEP (argc, argv);
+            settings->email = conarg_get_param (argc, argv);
+            break;
+
+        case INSERT_FILES:
+            CONARG_STEP (argc, argv);
+            settings->file_list = conarg_get_param (argc, argv);
+            break;
+
+        case INSERT_REQUIRE:
+            CONARG_STEP (argc, argv);
+            settings->require_list = conarg_get_param (argc, argv);
+            break;
+
+        case INSERT_DEPENDENCY:
+            settings->as_dependency = true;
+            break;
+
+        case INSERT_STANDALONE:
+            settings->as_dependency = false;
+            break;
+
+        case INSERT_INSTALLED:
+            settings->is_installed = true;
+            break;
+
+        case INSERT_UNINSTALLED:
+            settings->is_installed = false;
+            break;
+
+        case INSERT_DATABASE:
+            CONARG_STEP (argc, argv);
+            settings->database = conarg_get_param (argc, argv);
+            break;
+
+        case INSERT_DRY:
+            settings->dry_run = true;
+            break;
+
+        case INSERT_DEBUG:
+            settings->debug   = true;
+            /* fall through, 
+             * enable all verbose flags too */
+        case INSERT_VERBOSE:
+            settings->verbose = true;
+            break;
+
+        case INSERT_TERSE:
+            settings->verbose = false;
+            break;
+
+        case INSERT_HELP:
+            log_insert_help (stdout);
+            exit (EXIT_SUCCESS);
+
+        /* error states */
+        case CONARG_ID_UNKNOWN:
+        case CONARG_ID_PARAM_ERROR:
+        default:
+            log_insert_help (stderr);
+            exit (EXIT_FAILURE);
+        }
+
+        CONARG_STEP (argc, argv);
+    }
+
+    return (initial_count - argc);
 }
 
 
 static void
-log_insert_help (FILE *out)
+log_insert_help (FILE *fp)
 {
     const char *HELP_MESSAGE = {
         "Usage: " PROJECT_NAME " insert [NAME [VERSION]] [OPTION]...\n"
@@ -461,8 +343,8 @@ log_insert_help (FILE *out)
         "\n"
     };
 
-    fprintf (out, HELP_MESSAGE);
-    fflush (out);
+    fprintf (fp, HELP_MESSAGE);
+    fflush (fp);
 }
 
 

@@ -7,17 +7,18 @@
 #include "arguement.h"
 #include "config.h"
 #include "insert.h"
+#include "remove.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 
-static void log_hemlock_help (FILE *out);
-static void log_hemlock_version (FILE *out);
+static void log_hemlock_help (FILE *fp);
+static void log_hemlock_version (FILE *fp);
 
 
 void _Noreturn
-mode_exec (int remaining, char **arg_iter)
+mode_exec (int argc, char **argv)
 {
     const enum
     {
@@ -41,12 +42,11 @@ mode_exec (int remaining, char **arg_iter)
     const size_t ARG_COUNT = sizeof (ARG_LIST) / sizeof (*ARG_LIST);
 
     /* skip the executable name */
-    CONARG_STEP (arg_iter, remaining);
+    CONARG_STEP (argc, argv);
 
     /* get the mode */
     conarg_status_t param_stat = CONARG_STATUS_NA;
-    int id = conarg_check (ARG_LIST, ARG_COUNT, arg_iter, remaining, 
-                           &param_stat);
+    int id = conarg_check (ARG_LIST, ARG_COUNT, argc, argv, &param_stat);
 
     switch (id)    
     {
@@ -55,8 +55,8 @@ mode_exec (int remaining, char **arg_iter)
         break;
 
     case MODE_INSERT:   /* insert mode, pass only args after mode */
-        CONARG_STEP (arg_iter, remaining);
-        insert_wrapper (remaining, arg_iter);
+        CONARG_STEP (argc, argv);
+        insert_wrapper (argc, argv);
         break;
 
     case MODE_SEARCH:   /* search mode, pass only args after mode */
@@ -64,6 +64,8 @@ mode_exec (int remaining, char **arg_iter)
         break;
 
     case MODE_REMOVE:   /* remove mode, pass only args after mode */
+        CONARG_STEP (argc, argv);
+        remove_wrapper (argc, argv);
         printf ("remove mode unimplemented\n");
         break;
 
@@ -79,12 +81,13 @@ mode_exec (int remaining, char **arg_iter)
 
     /* error states */
     case CONARG_ID_PARAM_ERROR:
-        fprintf (stderr, "error: mode '%s' requires additional parameter\n", *arg_iter);
+        fprintf (stderr, "error: mode '%s' requires additional parameter\n", 
+                 *argv);
         log_hemlock_help (stderr);
         exit (EXIT_FAILURE);
 
     case CONARG_ID_UNKNOWN:
-        fprintf (stderr, "error: unknown mode: '%s'\n", *arg_iter);
+        fprintf (stderr, "error: unknown mode: '%s'\n", *argv);
         log_hemlock_help (stderr);
         exit (EXIT_FAILURE);
 
@@ -98,7 +101,7 @@ mode_exec (int remaining, char **arg_iter)
 
 
 static void
-log_hemlock_help (FILE *out)
+log_hemlock_help (FILE *fp)
 {
     const char *HELP_MESSAGE = 
     {
@@ -126,15 +129,15 @@ log_hemlock_help (FILE *out)
         "\n"
     };
 
-    fprintf (out, "%s", HELP_MESSAGE);
-    fflush (out);
+    fprintf (fp, "%s", HELP_MESSAGE);
+    fflush (fp);
 
     return;
 }
 
 
 static void
-log_hemlock_version (FILE *out)
+log_hemlock_version (FILE *fp)
 {
     const char VERSION_MESSAGE[] = 
     {
@@ -145,8 +148,8 @@ log_hemlock_version (FILE *out)
         "There is NO WARRANTY, to the extent permitted by law.\n"
     };
 
-    fprintf (out, "%s\n", VERSION_MESSAGE);
-    fflush (out);
+    fprintf (fp, "%s\n", VERSION_MESSAGE);
+    fflush (fp);
 
     return;
 }
