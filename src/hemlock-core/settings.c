@@ -4,80 +4,121 @@
 
 #include "settings.h"
 
+#include "config.h"
 #include <stdbool.h>
+#include <stdio.h>
+#include <stdint.h>
 
 
-static bool validate (require_list_t require, require_key_t key, void *ptr);
+static required_t settings_valid_fields (settings_t settings);
+static void fprintbits (FILE *fp, size_t n, uintmax_t v);
 
 
 settings_t 
-settings_default (void);
+settings_default (void)
 {
+    settings_t settings;
 
+    settings.debug   = false;
+    settings.verbose = false;
+
+    settings.database = HEMLOCK_DATABASE_FILE;
+    settings.dry_run  = false;
+
+    settings.name         = NULL;
+    settings.version      = NULL;
+    settings.homepage     = NULL;
+    settings.maintainer   = NULL;
+    settings.email        = NULL;
+    settings.require_list = NULL;
+    settings.file_list    = NULL;
+
+    settings.as_dependency = false;
+    settings.is_installed  = true;    
+
+    return settings;
+}
+
+
+static void
+fprintbits (FILE *fp, size_t n, uintmax_t v)
+{
+    for (; n >= 0; n--) 
+    {
+        putchar ('0' + ((v >> n) & 1));
+    }
 }
 
 
 void 
-settings_print (settings_t settings);
+settings_print (FILE *fp, settings_t settings)
 {    
-    const char *FORMAT = 
-    {
-    printf ("debug: %d\n", settings.debug);
-    printf ("verbose: %d\n", settings.verbose);
-    printf ("database: %s\n", settings.database);
-    printf ("dry_run: %d\n", settings.dry_run);
-    printf ("name: %d\n", settings.debug);
-    printf ("version: %d\n", settings.debug);
-    printf ("homepage: %d\n", settings.debug);
-    printf ("debug: %d\n", settings.debug);
-    printf ("debug: %d\n", settings.debug);
-    printf ("debug: %d\n", settings.debug);
-    printf ("debug: %d\n", settings.debug);
-    printf ("debug: %d\n", settings.debug);
-    printf ("debug: %d\n", settings.debug);
-        "verbose: %d\n"
-        "database: %s\n"
-        "dry_run: %d\n"
-        "name: %s\n"
-        "version: %s\n"
-        "homepage: %s\n"
-        "maintainer: %s\n"
-        "email: %s\n"
-        "is_installed: %d\n"
-        "as_dependency: %d\n"
-    };
+    fprintf (fp, "debug:         %d\n", settings.debug);
+    fprintf (fp, "verbose:       %d\n", settings.verbose);
+    fprintf (fp, "database:      %s\n", settings.database);
+    fprintf (fp, "dry_run:       %d\n", settings.dry_run);
+    fprintf (fp, "name:          %s\n", settings.name);
+    fprintf (fp, "version:       %s\n", settings.version);
+    fprintf (fp, "homepage:      %s\n", settings.homepage);
+    fprintf (fp, "maintainer:    %s\n", settings.maintainer);
+    fprintf (fp, "email:         %s\n", settings.email);
+    fprintf (fp, "require_list:  %s\n", settings.require_list);
+    fprintf (fp, "file_list:     %s\n", settings.file_list);
+    fprintf (fp, "as_dependency: %d\n", settings.as_dependency);
+    fprintf (fp, "is_installed:  %d\n", settings.is_installed);
+    fprintf (fp, "valid_fields:  ");
+    fprintbits (fp, 8, settings_valid_fields (settings));
+    fprintf (fp, "\n");
+    fflush (fp);
 
+    return;
 }
 
 
-static bool
-validate (require_list_t require, require_key_t key, void *ptr)
+static required_t
+settings_valid_fields (settings_t settings)
 {
-    /* bool not_required = (0 == (require & key));
-     * bool valid_ptr    = (NULL != ptr) 
-     *
-     * if (not_required) return true;
-     * 
-     * return valid_ptr;
-     * */
+    required_t list = REQUIRE_NONE;
 
-    return ((0 == (require & key)) || (NULL != ptr));
+    if (NULL != settings.database)     list |= REQUIRE_DATABASE;
+    if (NULL != settings.name)         list |= REQUIRE_NAME;
+    if (NULL != settings.version)      list |= REQUIRE_VERSION;
+    if (NULL != settings.homepage)     list |= REQUIRE_HOMEPAGE;
+    if (NULL != settings.maintainer)   list |= REQUIRE_MAINTAINER;
+    if (NULL != settings.email)        list |= REQUIRE_EMAIL;
+    if (NULL != settings.require_list) list |= REQUIRE_REQUIRE_LIST;
+    if (NULL != settings.file_list)    list |= REQUIRE_FILE_LIST;
+    
+    return list;
 }
 
 
-bool 
-settings_validate (settings_t self, require_list_t require)
+required_t
+settings_validate (settings_t settings, required_t require)
 {
-    if (REQUIRE_NONE == require) return true;
+    required_t valid_fields = settings_valid_fields (settings);
 
-    return ((validate (require, REQUIRE_DATABASE,     self.database))
-         && (validate (require, REQUIRE_NAME,         self.name))
-         && (validate (require, REQUIRE_VERSION,      self.version))
-         && (validate (require, REQUIRE_HOMEPAGE,     self.homepage))
-         && (validate (require, REQUIRE_MAINTAINER,   self.maintainer))
-         && (validate (require, REQUIRE_EMAIL,        self.email))
-         && (validate (require, REQUIRE_REQUIRE_LIST, self.require_list))
-         && (validate (require, REQUIRE_FILE_LIST,    self.file_list)));
+    /* return the fields that did NOT meet the requirements */
+    return ((valid_fields & require) ^ require);
+}
+
+
+void
+settings_log_required (FILE *fp, required_t missing)
+{
+    fprintf (fp, "error: %u: missing required field(s): ", missing);
+    
+    if (0 != (missing & REQUIRE_DATABASE))     fprintf (fp, "DBFILE ");
+    if (0 != (missing & REQUIRE_NAME))         fprintf (fp, "NAME ");
+    if (0 != (missing & REQUIRE_VERSION))      fprintf (fp, "VERSION ");
+    if (0 != (missing & REQUIRE_HOMEPAGE))     fprintf (fp, "HOMEPAGE ");
+    if (0 != (missing & REQUIRE_MAINTAINER))   fprintf (fp, "MAINTAINER ");
+    if (0 != (missing & REQUIRE_EMAIL))        fprintf (fp, "EMAIL ");
+    if (0 != (missing & REQUIRE_REQUIRE_LIST)) fprintf (fp, "PACKAGE_LIST ");
+    if (0 != (missing & REQUIRE_FILE_LIST))    fprintf (fp, "FILE_LIST ");
+
+    fprintf (fp, "\n");
+    fflush (fp);
 }
 
 

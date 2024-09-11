@@ -45,21 +45,21 @@ typedef struct
 } conarg_t;
 
 
-#define CONARG_STEP_N_UNSAFE(iter, remaining, n) { \
-    (iter)+=(n); \
-    (remaining)-=(n); \
+#define CONARG_STEP_N_UNSAFE(argc, argv, n) { \
+    (argv)+=(n); \
+    (argc)-=(n); \
 }
 
 
-#define CONARG_STEP(iter, remaining) { \
-    (iter)++; \
-    (remaining)--; \
+#define CONARG_STEP(argc, argv) { \
+    (argv)++; \
+    (argc)--; \
 }
 
 
-int conarg_check (const conarg_t *defs, size_t n, char **arg_iter, 
-                  int remaining, conarg_status_t *status_out);
-char *conarg_get_param (char **args, int remaining);
+int conarg_check (const conarg_t *defs, size_t n, int argc, char **argv, 
+                  conarg_status_t *status_out);
+char *conarg_get_param (int argc, char **argv);
 bool conarg_is_flag (char *arg);
 
 

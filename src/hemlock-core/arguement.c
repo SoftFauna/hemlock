@@ -48,7 +48,7 @@ strcmp_nullsafe (char *a, char *b)
 
 
 int
-conarg_check (const conarg_t *defs, size_t n, char **arg_iter, int remaining, 
+conarg_check (const conarg_t *defs, size_t n, int argc, char **argv, 
               conarg_status_t *status_out)
 {
     char *arguement = NULL;
@@ -57,15 +57,15 @@ conarg_check (const conarg_t *defs, size_t n, char **arg_iter, int remaining,
     conarg_status_t status = CONARG_STATUS_NA;
 
     /* validate parameters */
-    if ((NULL == defs) || (0 >= n) || (0 >= remaining) || 
-        (NULL == arg_iter) || (NULL == *arg_iter))
+    if ((NULL == defs) || (0 >= n) || (0 >= argc) || 
+        (NULL == argv) || (NULL == *argv))
     {
         errno = EINVAL;
         id = CONARG_ID_ERROR;
         goto conarg_check_exit;
     }
 
-    arguement = *arg_iter;
+    arguement = *argv;
 
     /* loop over all definitions */
     for (size_t i = 0; i < n; i++)
@@ -81,7 +81,7 @@ conarg_check (const conarg_t *defs, size_t n, char **arg_iter, int remaining,
         if ((CONARG_PARAM_OPTIONAL == defs[i].takes_param) ||
             (CONARG_PARAM_REQUIRED == defs[i].takes_param))
         {
-            parameter = conarg_get_param (arg_iter + 1, remaining - 1);
+            parameter = conarg_get_param (argc - 1, argv + 1);
             if (NULL == parameter)
             {   /* not a valid parameter */
                 status = CONARG_STATUS_NO_PARAM;
@@ -119,15 +119,15 @@ conarg_check_exit:
 
 
 char *
-conarg_get_param (char **args, int remaining)
+conarg_get_param (int argc, char **argv)
 {
-    if ((NULL == args) || (remaining < 1) || (NULL == args[0]))
+    if ((NULL == argv) || (argc < 1) || (NULL == *argv))
     {
         errno = EINVAL;
         return NULL;
     }
 
-    return args[0];
+    return *argv;
 }
 
 

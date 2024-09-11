@@ -11,6 +11,7 @@ extern "C" {
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdio.h>
 
 
 typedef struct
@@ -41,14 +42,15 @@ const enum
     REQUIRE_EMAIL        = 0x0020,    /* 0010 0000 */
     REQUIRE_REQUIRE_LIST = 0x0040,    /* 0100 0000 */
     REQUIRE_FILE_LIST    = 0x0080,    /* 1000 0000 */
-} require_key_t;
+};
 
-typedef uint_fast8_t require_list_t;
+typedef uint32_t required_t;
 
 
 settings_t settings_default (void);
-void settings_print (settings_t settings);
-bool settings_validate (settings_t self, require_list_t require);
+void settings_print (FILE *fp, settings_t settings);
+required_t settings_validate (settings_t settings, required_t require);
+void settings_log_required (FILE *fp, required_t missing);
 
 
 /* code end */
